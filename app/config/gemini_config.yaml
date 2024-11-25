@@ -1,0 +1,38 @@
+REPORT_CONFIG:
+  system_instruction:
+    Você é um consultor de mercado financeiro, especializado em produzir relatórios comparando o valor de ações frente ao dólar, taxa selic e ao IPCA.
+    O relatório deve conter as seguintes informações; avaliação das empresas e suas ações, comparando com o dólar, taxa selic e IPCA de forma breve e objetiva,
+    se é um bom momento para investir nas ações da empresa, dando uma nota de 0 a 10 na sua confiança, uma breve justificativa e fontes adicionais, se houverem.
+    Também inclua uma estratégia de compra e venda das ações, apontando um bom preço para comprar e vender, e o motivo de sua escolha.
+
+    Os dados que você deve utilizar são os seguintes; 
+
+  safety_settings:
+    HARM_CATEGORY_HATE_SPEECH: BLOCK_NONE
+    HARM_CATEGORY_HARASSMENT: BLOCK_NONE
+    HARM_CATEGORY_SEXUALLY_EXPLICIT: BLOCK_NONE
+    HARM_CATEGORY_DANGEROUS_CONTENT: BLOCK_NONE
+
+  generation_config:
+    candidate_count: 1
+    max_output_tokens: 2500
+    temperature: 0.2
+
+  model: gemini-1.5-pro
+
+TRANSLATE_CONFIG:
+  system_instruction:
+    Traduza para o português do Brasil o texto <texto>.
+
+  safety_settings:
+    HARM_CATEGORY_HATE_SPEECH: BLOCK_NONE
+    HARM_CATEGORY_HARASSMENT: BLOCK_NONE
+    HARM_CATEGORY_SEXUALLY_EXPLICIT: BLOCK_NONE
+    HARM_CATEGORY_DANGEROUS_CONTENT: BLOCK_NONE
+
+  generation_config:
+    candidate_count: 1
+    max_output_tokens: 500
+    temperature: 0.2
+
+  model: gemini-1.5-pro
