@@ -3,8 +3,8 @@ import yaml
 import json
 
 intro_page = st.Page("model/Intro.py", title="Introdução", icon="📑")
-part1 = st.Page("model/Part1.py", title="Part 1", icon="🗺️")
-part2 = st.Page("model/Part2.py", title="Part 2", icon="🗺️")
+part1 = st.Page("model/Part1.py", title="Part 1", icon="1️⃣")
+part2 = st.Page("model/Part2.py", title="Part 2", icon="2️⃣")
 
 pg = st.navigation([intro_page, part1, part2])
 

@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 import json
 import pandas as pd
 from sklearn.metrics import accuracy_score, precision_score, classification_report
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from rouge_score import rouge_scorer
 
 st.header('Parte 1 - TP3 - Engenharia de Prompts para Ciência de Dados')
 
@@ -45,6 +47,27 @@ def GetSimpsonsData():
     simpsons = pd.merge(simpsons, locais, left_on='location_id', right_on='location_id', how='left')
 
     return simpsons
+
+@st.cache_data
+def GetGeminiChunkAbstract(chunks, chunkPrompt, abstractPrompt):
+    responses = []
+    for c in chunks:
+        response = GetGeminiResponse({'model':'gemini-1.5-flash', 
+                       'system_instruction': chunkPrompt,
+                       'generation_config':{'candidate_count':1,'max_output_tokens': 500,'temperature':0.5}},c)
+        responses.append(response.text)
+
+    abstract = GetGeminiResponse({'model':'gemini-1.5-flash',
+                          'system_instruction': abstractPrompt,
+                          'generation_config':{'candidate_count':1,'max_output_tokens': 500,'temperature':0.5}},json.dumps(responses, ensure_ascii=False, indent=4))
+    
+    abstract = abstract.text.replace("```","").replace("json","")
+    result = {}
+    for i, r in enumerate(responses):
+        result[f'Chunk_{i+1}'] = r.replace("```","").replace("json","")
+    result['Resumo'] = abstract
+    return json.dumps(result)
+
 
 with st.container():        
     st.subheader('5. Base de dados The Simpsons', divider=True)
@@ -286,6 +309,23 @@ with st.container():
     st.markdown('''*Assista ao episódio “Homer, o vigilante” (ou leia as falas dos personagens), número 92 (episode_id) da temporada 5 (episode_season) 
                 e faça um resumo de aproximadamente 500 tokens (meça a quantidade usando o modelo do exercício 5), explicando o que acontece e como 
                 termina o episódio.*''')
+    
+    st.write('Fonte: https://simpsons.fandom.com/pt/wiki/Homer,_o_vigilante')
+
+    st.write('**Resumo do episódio:**')
+    resumo =''' 
+        Ultimamente tem ocorrido vários roubos em Springfield (Incluindo o saxofone de Lisa) e o bandido já anuncia qual será o seu próximo roubo: 
+        um diamante raro no museu de Springfield a meia-noite. Homer e outros homens se preparam para vigiar o museu e impedir o futuro roubo, 
+        capturando o ladrão. Mas o ladrão escapa com o diamante e Abe é o único que o vê escapar e suspeita de que o bandido seja um dos idosos do 
+        Asilo de Springfield e conta sua teoria a Homer, que não acredita em seu pai. Entretanto, Abe estava certo e ao descobrir quem era o ladrão, 
+        a polícia de Springfield o prende e devolve a todos o que foi roubado. Mas o ladrão diz que há um tesouro enterrado em Springfield: U$ 100000 
+        que ele mesmo roubou. Mas na verdade a história do tesouro foi para enganar a todos enquanto ele foge.
+        '''
+    st.write(resumo)
+    
+    encoding = tk.get_encoding("cl100k_base")
+    #tokens resumo
+    st.metric('Quantidade de tokens',len(encoding.encode(resumo)))
 
 #-------------------------------------------------------------
 
@@ -296,6 +336,63 @@ with st.container():
                 falas por janela. Utilize o LLM para resumir cada um dos chunks. Posteriormente, crie um segundo prompt com os resumos dos chunks 
                 instruindo o LLM a gerar o resumo final. Quantos chunks foram necessários? Avalie o resultado do resumo final e de cada chunk quanto à 
                 veracidade e coerência.*''')
+    
+    df_simpsons_92 = df_simpsons[df_simpsons['episode_id'] == '92'].copy()
+
+    systemInstruction_8_A = '''
+    Sua tarefa é resumir o episódio informado se baseando nas falas dos personagens.
+    O resumo deve explicar o que acontece e como termina o episódio.
+
+    A resposta deve ser no formato Json conforme o exemplo: 
+    {"Resumo": <Resumo> }
+    A resposta deve estar pronta para ser convertida em formato json sem erros ou processos adicionais.
+    '''
+
+    systemInstruction_8_B = '''
+    Sua tarefa é juntar um conjunto de resumos e gerar um resumo final do episódio informado.
+
+    A resposta deve ser no formato Json e a resposta deve estar pronta para ser convertida em formato json sem erros ou processos adicionais.
+    '''
+
+    chunks = []
+    for i in range(0, len(df_simpsons_92), 75): #-> Overlap de 25 falas
+        chunk = df_simpsons_92.iloc[i:i+100]['raw_text'].str.cat(sep=' ')
+        chunks.append(chunk)
+
+    with st.spinner('Gerando resumo...'):
+        resumo_LLM = GetGeminiChunkAbstract(chunks, systemInstruction_8_A, systemInstruction_8_B)
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.write('**Resumo**')
+        st.write(resumo)
+
+    with cols[1]:
+        st.write('**Resumo LLM**')
+        resumo_LLM = json.loads(resumo_LLM)
+        resumoLLM_Final = json.loads(resumo_LLM['Resumo'])['Resumo']
+        st.write(resumoLLM_Final)
+
+    st.divider()
+
+    st.write('**Chunks**')
+    cols = st.columns(2)
+    with cols[0]:
+        st.write(json.loads(resumo_LLM['Chunk_1'])['Resumo'])
+        st.write(json.loads(resumo_LLM['Chunk_2'])['Resumo'])
+    with cols[1]:
+        st.write(json.loads(resumo_LLM['Chunk_3'])['Resumo'])
+        st.write(json.loads(resumo_LLM['Chunk_4'])['Resumo'])
+
+    st.divider()
+
+    cols = st.columns([0.8,0.2])
+    with cols[0]:
+        st.write('''
+                 **R.:** O resumo gerado pelo gemini foi bem completo e satisfatório, quanto aos chunks, o resumo do bloco é até bom, 
+                mas o LLM sempre acredita que se trata do início de episódio a cada chunk.''')
+    with cols[1]:
+        st.metric('Quantidade de chunks',len(chunks))
 
 #-------------------------------------------------------------
 
@@ -305,6 +402,49 @@ with st.container():
                 (utilize qualquer LLM para traduzir entre inglês e portugês se necessário). Aplique as métricas, tanto ao resumo final, quanto ao 
                 resumo de cada chunk. Interprete as métricas considerando que o seu resumo é o gabarito. Os resumos (final e de cada chunk) convergem? 
                 Quais informações foram omitidas entre os dois resumos?*''')
+    
+    #BLEU
+    ref_token = resumo.split()
+    llm_abstract_tokens = resumoLLM_Final.split()
+
+    smoothie = SmoothingFunction().method1
+    score_bleu = sentence_bleu([ref_token], llm_abstract_tokens, smoothing_function=smoothie)
+
+    #ROUGE
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+    scores_rougue = scorer.score(resumo, resumoLLM_Final)
+
+    cols = st.columns([0.9,0.1])
+
+    with cols[0]:
+        st.metric('BLEU',round(score_bleu,3))
+        st.write('''
+                **R.:** Apesar do baixo valor de BLEU e F1-Score do Rougue, em termos de sentido o resumo gerado está de acordo com o gabarito, sendo
+                 escrito de forma diferente, porém mantendo uma mensagem alinhada.
+
+                 O resumo da LLM não citou a forma como ladrão fugiu, nem a parte do tesouro enterrado em Springfield, mais disse quem era o ladrão e seu apelido.
+                 ''')
+    with cols[1]:
+        for k, v in scores_rougue.items():
+            st.metric(k,round(v.fmeasure,2))
+
+    st.divider()
+
+    chunks_to_compare = ['Chunk_1','Chunk_2','Chunk_3','Chunk_4']
+
+    st.write('**Comparação dos Chunks**')
+    cols = st.columns(5)
+    for i, c in enumerate(chunks_to_compare):
+        chunk = json.loads(resumo_LLM[c])['Resumo']
+        score_bleu = sentence_bleu([ref_token], chunk.split(), smoothing_function=smoothie)
+        scores_rougue = scorer.score(resumo, chunk)
+        with cols[0]:
+            st.metric(f'BLEU - {c}',round(score_bleu,3))
+        with cols[i+1]:
+            for k, v in scores_rougue.items():
+                st.metric(f'{k} - {c}',round(v.fmeasure,2))
+
+    st.write('**R.:** Os resumos dos chunks performam um pouco pior que o resumo final em praticallyamente todas as métricas, porém a variação é pequena.')
 
 #-------------------------------------------------------------
 
@@ -314,3 +454,5 @@ with st.container():
                 chain of thoughts para construir uma aplicação streamlit que faça a leitura do resultado da análise de sentimento e faça um gráfico de 
                 pizza mostrando a proporção de falas de categoria do episódio. Divida o problema em três prompts e execute o código final. O LLM foi capaz 
                 de implementar a aplicação? Qual foi o objetivo de cada prompt?*''')
+    
+    #Basicamente mandar a IA fazer um gráfico de pizza em streamlit e exibir o código gerada por ela apartir dos prompts
