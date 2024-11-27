@@ -162,7 +162,8 @@ with st.container():
                 messages.chat_message("user").write(prompt)
                 response = GetGeminiResponse({'model':'gemini-1.5-flash', 
                                             'generation_config':{'candidate_count':1,'max_output_tokens':500,'temperature':0.5},
-                                            'system_instruction':systemInstruction_5.format(epi=epi.to_json())},json.dumps(st.session_state['history'], ensure_ascii=False, indent=4))
+                                            'system_instruction':systemInstruction_5.format(epi=epi.to_json())},
+                                            json.dumps(st.session_state['history'], ensure_ascii=False, indent=4))
                 messages.chat_message("assistant").write(f"Echo: {response.text}")
 
                 st.session_state['history'].append({'Assistente':response.text})
@@ -455,4 +456,125 @@ with st.container():
                 pizza mostrando a proporção de falas de categoria do episódio. Divida o problema em três prompts e execute o código final. O LLM foi capaz 
                 de implementar a aplicação? Qual foi o objetivo de cada prompt?*''')
     
-    #Basicamente mandar a IA fazer um gráfico de pizza em streamlit e exibir o código gerada por ela apartir dos prompts
+    # especializado em fazer dashboards em streamlit e utilizar as bibliotecas pandas e plotly
+    systemInstruction_10 = '''
+        Você é um desenvolvedor python.
+        Seus códigos não devem conter erros, diretos ao ponto e devem ser claros e objetivos.
+        Não escreva comentários no código, apenas o código em si e devem estar prontos para uso.
+        Não esqueça de uma formatação correta e organização do código.
+        Se limite a apenas as instruções fornecidas.
+        Os dados que você tem acesso são esses: {classificao_exe_6}.
+    '''
+    st.write('**System Instruction**')
+    st.code(systemInstruction_10)
+
+    classifications = pd.DataFrame({'Positivo':1,'Neutro':2,'Negativo':2},index=[0])
+
+    st.write('**Classificações do exercício 6**')
+    st.dataframe(classifications, use_container_width=True)
+
+    max_msg_10_key = 'max_10'
+    hist_10_key = 'hist_10'
+
+    if max_msg_10_key not in st.session_state:
+        st.session_state[max_msg_10_key] = 0
+    if hist_10_key not in st.session_state:
+        st.session_state[hist_10_key] = []
+
+    def WriteHistory(messages):
+        try:
+            for history in st.session_state[hist_10_key]:
+                role = 'Usuário' if 'Usuário' in history else 'Assistente'
+                icon = 'user' if 'Usuário' in history else 'assistant'
+                messages.chat_message(icon).write(history[role])
+        except:
+            st.error('Erro ao escrever histórico')
+            pass
+
+       # with st.spinner('Aguarde...'):
+    cols = st.columns([0.8,0.2])
+    with cols[0]:
+        messages = st.container(height=300)
+        WriteHistory(messages)
+        if st.session_state[max_msg_10_key] < 3:
+            if prompt := st.chat_input("Converse com o especialista python"):
+                st.session_state[hist_10_key].append({'Usuário':prompt})
+                messages.chat_message("user").write(prompt)
+                response = GetGeminiResponse({'model':'gemini-1.5-flash', 
+                                            'generation_config':{'candidate_count':1,'max_output_tokens':500,'temperature':0.2},
+                                            'system_instruction':systemInstruction_10.format(classificao_exe_6=classifications.to_json(orient='records', lines=True))},
+                                            json.dumps(st.session_state[hist_10_key], ensure_ascii=False, indent=4))
+                messages.chat_message("assistant").write(f"Echo: {response.text}")
+
+                st.session_state[hist_10_key].append({'Assistente':response.text})
+                st.session_state[max_msg_10_key] += 1
+        else:
+            st.write('Limite atingido, reinicia o chat para continuar')
+    with cols[1]:
+        st.write('Esse chat tem o limite de 3 interações, ao atingir o limite, reinicie o chat para continuar')
+        st.write(f'Interações: {st.session_state[max_msg_10_key]}/3')
+        if st.button('Reiniciar', key='reiniciar_10'):
+            st.session_state[max_msg_10_key] = 0
+            st.session_state[hist_10_key].clear()
+            st.rerun()
+        if st.session_state[max_msg_10_key] == 3:
+            st.warning('Limite atingido, reinicia o chat para continuar')
+
+            #Escreva uma aplicação simples streamlit com o título "Análise de Sentimento"
+
+            #Agora leia os dados de classificação e exiba o dataframe na aplicação streamlit
+
+            #Agora faça um gráfico de pizza a partir dos dados de classificação e exiba na aplicação streamlit
+
+            #Como se cria uma simples aplicação streamlit?
+
+    st.divider()
+
+    st.write('**Resultado do chain of thoughts:**')
+
+    cols = st.columns(2)
+    with cols[0]:
+        st.image('data/images/tp10_A.png',use_container_width=True)
+        st.image('data/images/tp10_B.png',use_container_width=True)
+    with cols[1]:
+        st.image('data/images/tp10_C.png',use_container_width=True)
+        st.image('data/images/tp10_D.png',use_container_width=True)
+
+    st.write('**Código gerado pelo LLM:**')
+    st.code(
+        '''
+            import streamlit as st
+            import pandas as pd
+            import plotly.express as px
+
+            dados = {"Positivo": 1, "Neutro": 2, "Negativo": 2}
+            df = pd.DataFrame(list(dados.items()), columns=['Sentimento', 'Contagem'])
+
+            st.title("Minha primeira aplicação Streamlit")
+            st.write("Olá, mundo!")
+            st.write("Este é um exemplo simples de uma aplicação Streamlit.")
+
+            st.write("Visualização do DataFrame:")
+            st.dataframe(df)
+
+            fig = px.pie(df, values='Contagem', names='Sentimento', title='Distribuição de Sentimentos')
+            st.plotly_chart(fig)
+        ''')
+
+    st.write('**Resultado do código da LLM:**')
+
+    st.divider()
+    import plotly.express as px
+    dados = {"Positivo": 1, "Neutro": 2, "Negativo": 2}
+    df = pd.DataFrame(list(dados.items()), columns=['Sentimento', 'Contagem'])
+
+    st.title("Minha primeira aplicação Streamlit")
+    st.write("Olá, mundo!")
+    st.write("Este é um exemplo simples de uma aplicação Streamlit.")
+
+    st.write("Visualização do DataFrame:")
+    st.dataframe(df)
+
+    fig = px.pie(df, values='Contagem', names='Sentimento', title='Distribuição de Sentimentos')
+    st.plotly_chart(fig)
+
